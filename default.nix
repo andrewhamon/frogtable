@@ -11,10 +11,16 @@ let
       fileset = fs.unions [ ./src-web ./bindings ];
     };
 
+    buildInputs = with pkgs; [
+      nodejs
+      bun
+    ];
+
     buildPhase = ''
       cd src-web
-      ${pkgs.bun}/bin/bun install
-      ${pkgs.bun}/bin/bun run build
+      bun install
+      patchShebangs --build node_modules/*/bin
+      bun run build
     '';
 
     installPhase = ''
