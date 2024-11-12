@@ -56,13 +56,13 @@ function App() {
   }, [selectedQuery, forceRefetchData]);
 
   useEffect(() => {
-    const eventSource = new EventSource("/sse");
-    eventSource.onmessage = (event) => {
+    const bc = new BroadcastChannel("sse");
+    bc.onmessage = (event) => {
       console.log(event);
     };
 
     return () => {
-      eventSource.close();
+      bc.close();
     };
   }, []);
 
