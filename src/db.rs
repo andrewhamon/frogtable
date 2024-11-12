@@ -12,6 +12,7 @@ pub struct DB {
     pub conn: std::sync::Arc<std::sync::Mutex<Connection>>,
     pub tx: broadcast::Sender<DbBroadcastEvent>,
     pub configs: std::sync::Arc<[Config]>,
+    pub cli_args: Vec<CliConfig>,
 }
 
 impl DB {
@@ -43,6 +44,7 @@ impl DB {
             conn: std::sync::Arc::new(conn.into()),
             configs: configs.into(),
             tx,
+            cli_args: cli_configs,
         };
 
         db.init()?;

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 static SCRATCH_DIR: std::sync::LazyLock<PathBuf> =
     std::sync::LazyLock::new(|| dirs::cache_dir().unwrap().join("frogtable").join("debug"));
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct CliConfig {
     #[command(flatten)]
@@ -13,9 +13,12 @@ pub struct CliConfig {
 
     #[arg(long, required = false)]
     pub name: Option<String>,
+
+    #[arg(long, required = false)]
+    pub no_open: bool,
 }
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 #[group(required = true, multiple = false)]
 pub struct CliSource {
     #[arg(long)]
