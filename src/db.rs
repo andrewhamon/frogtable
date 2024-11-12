@@ -51,6 +51,7 @@ impl DB {
     }
 
     pub fn init(&self) -> anyhow::Result<()> {
+        self.refresh_sources("all")?;
         for config in self.configs.iter() {
             if let Config::Table(table) = config {
                 self.conn.lock().unwrap().execute(
@@ -67,7 +68,12 @@ impl DB {
     }
 
     pub fn refresh_sources(&self, name: &str) -> anyhow::Result<()> {
-        for config in self.find_dependent_sources(name)?.iter() {
+        let sources = if name == "all" {
+            self.configs.to_vec()
+        } else {
+            self.find_dependent_sources(name)?
+        };
+        for config in sources.iter() {
             if let Config::Table(table) = config {
                 let source = table.clone().source;
                 let source_name = table.name.clone();
