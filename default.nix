@@ -3,9 +3,9 @@ let
   version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
   fs = pkgs.lib.fileset;
 
-  web = pkgs.stdenv.mkDerivation {
-    pname = "frogtable-web";
-    inherit version;
+  web = pkgs.stdenv.mkDerivation rec {
+    name = "frogtable-web-${src}";
+
     src = fs.toSource {
       root = ./.;
       fileset = fs.unions [ ./src-web ./bindings ];
@@ -24,7 +24,7 @@ let
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-PWPmddequhRxpL/871wMxOoex99RrVF1l3pPzcLIEGg=";
+    outputHash = "sha256-z09fjU/u4NLdofpcYV6Ra+B6qLJrWb/s3El896Y5sTM=";
   };
 in
 pkgs.rustPlatform.buildRustPackage rec {
