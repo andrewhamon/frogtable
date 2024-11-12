@@ -16,7 +16,7 @@ use tokio_stream::StreamExt as _;
 use ts_rs::TS;
 
 #[derive(RustEmbed, Clone)]
-#[folder = "src-web/dist/"]
+#[folder = "${FROGTABLE_WEB_DIST:-src-web/dist/}"]
 struct Assets;
 
 use crate::{
