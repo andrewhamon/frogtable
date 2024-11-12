@@ -54,10 +54,14 @@ impl DB {
         self.refresh_sources("all")?;
         for config in self.configs.iter() {
             if let Config::Table(table) = config {
+                validate_table_name(&table.name)?;
+                let escaped_table_name = escape_table_name(&table.name);
+
                 self.conn.lock().unwrap().execute(
                     &format!(
                         "CREATE OR REPLACE VIEW {} AS SELECT * FROM read_json('{}', ignore_errors = true, format = 'unstructured');",
-                        table.name, table.json_path().display()
+                        escaped_table_name,
+                        table.json_path().display()
                     ),
                     params![],
                 )?;
@@ -206,4 +210,21 @@ pub struct ExecQueryResult {
 #[derive(Debug, Clone)]
 pub enum DbBroadcastEvent {
     Ping { data: String },
+}
+
+// I tried format_sql_query crate but it does not add quotes if hyphens are
+// present.
+fn escape_table_name(name: &str) -> String {
+    return format!("\"{}\"", name);
+}
+
+fn validate_table_name(name: &str) -> anyhow::Result<()> {
+    // name should only contain a-zA-Z0-9-_
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(anyhow::anyhow!("Invalid table name: {}", name));
+    }
+    Ok(())
 }
