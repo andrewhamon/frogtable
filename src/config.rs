@@ -29,6 +29,8 @@ pub struct CliSource {
     pub sql_file: Option<PathBuf>,
     #[arg(long, requires = "name")]
     pub sql: Option<String>,
+    #[arg(long)]
+    pub setup_sql: Option<String>,
 }
 
 impl CliConfig {
@@ -39,25 +41,36 @@ impl CliConfig {
                 json_cmd: None,
                 sql_file: None,
                 sql: None,
+                setup_sql: None,
             } => Config::from_json_file(self.name.as_deref(), path),
             CliSource {
                 json_file: None,
                 json_cmd: Some(command),
                 sql_file: None,
                 sql: None,
+                setup_sql: None,
             } => Config::from_json_cmd(self.name.as_deref(), command),
             CliSource {
                 json_file: None,
                 json_cmd: None,
                 sql_file: Some(path),
                 sql: None,
+                setup_sql: None,
             } => Config::from_sql_file(self.name.as_deref(), path),
             CliSource {
                 json_file: None,
                 json_cmd: None,
                 sql_file: None,
                 sql: Some(sql),
+                setup_sql: None,
             } => Config::from_sql_string(self.name.as_deref(), sql),
+            CliSource {
+                json_file: None,
+                json_cmd: None,
+                sql_file: None,
+                sql: None,
+                setup_sql: Some(sql),
+            } => Config::from_setup_string(sql),
             _ => panic!("Invalid config"),
         }
     }
@@ -101,6 +114,12 @@ pub struct QueryConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
+
+pub struct SetupConfig {
+    pub sql: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
 #[serde(tag = "type")]
 
 pub enum QuerySource {
@@ -112,6 +131,7 @@ pub enum QuerySource {
 pub enum Config {
     Table(TableConfig),
     Query(QueryConfig),
+    Setup(SetupConfig),
 }
 
 impl Config {
@@ -164,6 +184,12 @@ impl Config {
             source: QuerySource::SqlString {
                 contents: sql.to_string(),
             },
+        }))
+    }
+
+    pub fn from_setup_string(sql: &str) -> anyhow::Result<Self> {
+        Ok(Config::Setup(SetupConfig {
+            sql: sql.to_string(),
         }))
     }
 }

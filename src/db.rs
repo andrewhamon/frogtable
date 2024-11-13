@@ -53,6 +53,12 @@ impl DB {
     }
 
     pub fn init(&self) -> anyhow::Result<()> {
+        for config in self.configs.iter() {
+            if let Config::Setup(setup) = config {
+                eprintln!("Running setup:\n{}", &setup.sql);
+                self.conn.lock().unwrap().execute_batch(&setup.sql)?;
+            }
+        }
         self.refresh_sources("all")?;
         for config in self.configs.iter() {
             if let Config::Table(table) = config {
