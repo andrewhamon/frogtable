@@ -1,3 +1,8 @@
+use anyhow::anyhow;
+use chrono::prelude::{DateTime, NaiveDate, NaiveTime};
+use serde_json::Map;
+use std::iter;
+
 pub fn duckdb_value_to_json_value(dv: duckdb::types::Value) -> anyhow::Result<serde_json::Value> {
     let value = match dv {
         duckdb::types::Value::Null => serde_json::Value::Null,
@@ -24,14 +29,38 @@ pub fn duckdb_value_to_json_value(dv: duckdb::types::Value) -> anyhow::Result<se
                 .collect();
             serde_json::Value::Array(vec)
         }
-        duckdb::types::Value::Timestamp(_, _) => todo!(),
-        duckdb::types::Value::Interval { .. } => todo!(),
+        duckdb::types::Value::Timestamp(unit, amount) => {
+            let error = anyhow!(
+                "Error converting duckdb::types::Value::Timestamp to chrono::DateTime. unit: {:?}, amount: {:?}", unit, amount
+            );
+            let dt = match unit {
+                duckdb::types::TimeUnit::Nanosecond => DateTime::from_timestamp_nanos(amount),
+                duckdb::types::TimeUnit::Microsecond => {
+                    DateTime::from_timestamp_micros(amount).ok_or(error)?
+                }
+                duckdb::types::TimeUnit::Millisecond => {
+                    DateTime::from_timestamp_millis(amount).ok_or(error)?
+                }
+                duckdb::types::TimeUnit::Second => {
+                    DateTime::from_timestamp(amount, 0).ok_or(error)?
+                }
+            };
+            serde_json::Value::String(format!("{}", dt.format("%+")))
+        }
+        duckdb::types::Value::Interval {
+            months,
+            days,
+            nanos,
+        } => serde_json::Value::Object(Map::from_iter(
+            iter::once(("months".to_string(), months.into()))
+                .chain(iter::once(("days".to_string(), days.into())))
+                .chain(iter::once(("nanos".to_string(), nanos.into()))),
+        )),
         duckdb::types::Value::List(l) => serde_json::Value::Array(
             l.iter()
                 .map(|b| duckdb_value_to_json_value(b.clone()))
                 .collect::<anyhow::Result<Vec<_>>>()?,
         ),
-
         duckdb::types::Value::Array(l) => serde_json::Value::Array(
             l.iter()
                 .map(|b| duckdb_value_to_json_value(b.clone()))
@@ -51,8 +80,28 @@ pub fn duckdb_value_to_json_value(dv: duckdb::types::Value) -> anyhow::Result<se
         duckdb::types::Value::UTinyInt(i) => i.into(),
         duckdb::types::Value::UInt(i) => i.into(),
         duckdb::types::Value::Decimal(d) => d.to_string().into(),
-        duckdb::types::Value::Date32(_) => todo!(),
-        duckdb::types::Value::Time64(_, _) => todo!(),
+        duckdb::types::Value::Date32(i) => {
+            // From experimentation, this is number of days since 1970-01-01.
+            // Chrono uses 0001-01-01 as the epoch, so we need to add 719163
+            // days to get the correct date.
+            let nd = NaiveDate::from_num_days_from_ce_opt(i + 719163).ok_or(anyhow!(
+                "Error converting duckdb::types::Value::Date32 to chrono::NaiveDate. amount: {:?}",
+                i
+            ))?;
+            serde_json::Value::String(nd.to_string())
+        }
+        duckdb::types::Value::Time64(unit, amount) => {
+            let micros = unit.to_micros(amount);
+            let seconds = micros / 1_000_000;
+            let nano = (micros % 1_000_000) * 1_000;
+            let nt = NaiveTime::from_num_seconds_from_midnight_opt(seconds.try_into()?, nano.try_into()?).ok_or(
+                anyhow!(
+                    "Error converting duckdb::types::Value::Time64 to chrono::NaiveDate. unit: {:?}, amount: {:?}",
+                    unit, amount
+                )
+            )?;
+            serde_json::Value::String(nt.to_string())
+        }
         duckdb::types::Value::Enum(s) => s.into(),
         duckdb::types::Value::Map(s) => {
             let mut map = serde_json::Map::new();
@@ -76,7 +125,7 @@ pub fn duckdb_value_to_json_value(dv: duckdb::types::Value) -> anyhow::Result<se
                         );
                     }
                     _ => {
-                        return Err(anyhow::anyhow!("Error converting a duckdb::Map to a serde_json::Value. Map key must be a scalar value, but got {:?}", key_as_json_value));
+                        return Err(anyhow!("Error converting a duckdb::Map to a serde_json::Value. Map key must be a scalar value, but got {:?}", key_as_json_value));
                     }
                 }
             }
