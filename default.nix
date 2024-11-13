@@ -44,5 +44,5 @@ pkgs.rustPlatform.buildRustPackage rec {
 
   FROGTABLE_WEB_DIST = "${web}";
 
-  cargoHash = "sha256-URSC9CY1TN81XjlSGFbYO+4f3WkHaEas71JfOD6dKHU=";
+  cargoHash = "sha256-USP1zp1COueVSHLlh1XC2c1zBXayywGfn867bL0CwAA=";
 }
