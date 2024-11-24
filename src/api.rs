@@ -82,7 +82,7 @@ type ApiResult<T> = Result<Json<T>, AppError>;
 
 #[derive(TS, Serialize, Deserialize)]
 struct ListQueriesResponse {
-    queries: Vec<config::QueryConfig>,
+    queries: Vec<config::Query>,
 }
 
 #[derive(TS, Serialize, Deserialize)]

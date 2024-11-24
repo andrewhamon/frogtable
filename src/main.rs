@@ -2,6 +2,7 @@ use open;
 use tokio::time::{sleep, Duration};
 
 mod api;
+mod cli_config;
 mod config;
 mod db;
 mod json;
@@ -10,7 +11,7 @@ mod json;
 async fn main() -> anyhow::Result<()> {
     let db = db::DB::new_from_cli_args().await?;
 
-    let should_open = !db.cli_args.iter().any(|cli| cli.no_open);
+    let should_open = db.config.open;
 
     let app = api::new(db);
 

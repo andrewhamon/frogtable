@@ -1,18 +1,18 @@
 use clap::Parser;
-use duckdb::{params, Connection};
+use duckdb::{params, Config as DuckConfig, Connection};
 use fallible_iterator::FallibleIterator;
 use std::ffi::OsString;
 use tokio::sync::broadcast;
 
-use crate::config::{CliConfig, Config, QueryConfig, QuerySource, TableSource};
+use crate::cli_config::CliConfig;
+use crate::config;
 use crate::json;
 
 #[derive(Clone)]
 pub struct DB {
     pub conn: std::sync::Arc<std::sync::Mutex<Connection>>,
     pub tx: broadcast::Sender<DbBroadcastEvent>,
-    pub configs: std::sync::Arc<[Config]>,
-    pub cli_args: Vec<CliConfig>,
+    pub config: std::sync::Arc<config::RootConfig>,
 }
 
 impl DB {
@@ -20,6 +20,8 @@ impl DB {
         let args: Vec<OsString> = std::env::args_os().collect();
         let prog_name = args[0].clone();
         let args_without_prog_name = &args[1..];
+
+        let mut root_config = config::RootConfig::new();
 
         // split args into arg groups using '--'
         let cli_configs = args_without_prog_name
@@ -31,20 +33,20 @@ impl DB {
             })
             .collect::<Vec<_>>();
 
-        let configs = cli_configs
-            .iter()
-            .map(|cli_config| cli_config.to_config())
-            .collect::<anyhow::Result<Vec<Config>>>()?;
+        for config in cli_configs.iter() {
+            config.append_to_root_config(&mut root_config);
+        }
 
-        let conn = Connection::open_in_memory()?;
+        let conn = Connection::open_in_memory_with_flags(
+            DuckConfig::default().allow_unsigned_extensions()?,
+        )?;
 
         let (tx, _) = broadcast::channel::<DbBroadcastEvent>(16);
 
         let db = DB {
             conn: std::sync::Arc::new(conn.into()),
-            configs: configs.into(),
+            config: std::sync::Arc::new(root_config),
             tx,
-            cli_args: cli_configs,
         };
 
         db.init()?;
@@ -53,91 +55,52 @@ impl DB {
     }
 
     pub fn init(&self) -> anyhow::Result<()> {
-        for config in self.configs.iter() {
-            if let Config::Setup(setup) = config {
-                eprintln!("Running setup:\n{}", &setup.sql);
-                self.conn.lock().unwrap().execute_batch(&setup.sql)?;
-            }
+        for config in self.config.initializers.iter() {
+            self.conn
+                .lock()
+                .unwrap()
+                .execute_batch(&config.source.sql()?)?;
         }
         self.refresh_sources("all")?;
-        for config in self.configs.iter() {
-            if let Config::Table(table) = config {
-                validate_table_name(&table.name)?;
-                let escaped_table_name = escape_table_name(&table.name);
+        for config in self.config.sources.iter() {
+            validate_table_name(&config.name)?;
+            let escaped_table_name = escape_table_name(&config.name);
 
-                self.conn.lock().unwrap().execute(
+            self.conn.lock().unwrap().execute(
                     &format!(
                         "CREATE OR REPLACE VIEW {} AS SELECT * FROM read_json('{}', ignore_errors = true, format = 'unstructured');",
                         escaped_table_name,
-                        table.json_path().display()
+                        config.path().display(),
                     ),
                     params![],
                 )?;
-            }
         }
 
         Ok(())
     }
 
-    pub fn refresh_sources(&self, name: &str) -> anyhow::Result<()> {
-        let sources = if name == "all" {
-            self.configs.to_vec()
+    pub fn refresh_sources(&self, query_name: &str) -> anyhow::Result<()> {
+        let sources = if query_name == "all" {
+            &self.config.sources
         } else {
-            self.find_dependent_sources(name)?
+            &self.find_dependent_sources(query_name)?
         };
         for config in sources.iter() {
-            if let Config::Table(table) = config {
-                let source = table.clone().source;
-                let source_name = table.name.clone();
-
-                if let TableSource::ShellCommand(cmd) = source {
-                    eprintln!("Refreshing source: {}", source_name);
-                    let json_out = table.json_out();
-                    std::fs::create_dir_all(json_out.parent().unwrap())?;
-                    let output = std::process::Command::new("bash")
-                        .arg("-c")
-                        .arg(cmd.clone())
-                        .output()?;
-
-                    if !output.status.success() {
-                        eprintln!("Error refreshing source: {}", source_name);
-                        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-                        return Err(anyhow::anyhow!(
-                            "Error refreshing source `{}` ({}).\n\n$ {}\n{}",
-                            source_name,
-                            output.status,
-                            cmd,
-                            String::from_utf8_lossy(&output.stderr)
-                        ));
-                    }
-
-                    std::fs::write(&json_out, &output.stdout)?;
-                }
-            }
+            config.refresh()?;
         }
 
         Ok(())
     }
 
     pub fn exec_query(&self, name: &str) -> anyhow::Result<ExecQueryResult> {
-        let config = self
-            .configs
+        let query = self
+            .config
+            .queries
             .iter()
-            .find(|config| match config {
-                Config::Query(query) => query.name == name,
-                _ => false,
-            })
+            .find(|config| config.name == name)
             .ok_or(anyhow::anyhow!("Query not found"))?;
 
-        let query = match config {
-            Config::Query(query) => query,
-            _ => unreachable!(),
-        };
-
-        let sql = match &query.source {
-            QuerySource::SqlFile { source: path } => std::fs::read_to_string(path)?,
-            QuerySource::SqlString { contents: sql } => sql.clone(),
-        };
+        let sql = query.source.sql()?;
 
         let conn = self.conn.lock().unwrap();
 
@@ -159,54 +122,29 @@ impl DB {
         Ok(result)
     }
 
-    pub fn find_dependent_sources(&self, query_name: &str) -> anyhow::Result<Vec<Config>> {
-        let query_config = self
-            .configs
+    pub fn find_dependent_sources(&self, query_name: &str) -> anyhow::Result<Vec<config::Data>> {
+        let query = self
+            .config
+            .queries
             .iter()
-            .find(|config| match config {
-                Config::Query(query) => query.name == query_name,
-                _ => false,
-            })
+            .find(|config| config.name == query_name)
             .ok_or(anyhow::anyhow!("Query not found"))?;
 
         let mut dependent_sources = vec![];
 
-        let sql_source = match &query_config {
-            Config::Query(QueryConfig {
-                source: QuerySource::SqlString { contents },
-                ..
-            }) => contents.to_owned(),
-            Config::Query(QueryConfig {
-                source: QuerySource::SqlFile { source },
-                ..
-            }) => std::fs::read_to_string(source)?,
-            _ => "".to_owned(),
-        };
+        let sql_source = query.source.sql()?;
 
-        for config in self.configs.iter() {
-            if let Config::Table(table) = config {
-                if let TableSource::ShellCommand(_) = &table.source {
-                    if sql_source.contains(&table.name) {
-                        dependent_sources.push(config.clone());
-                    }
-                }
+        for data_source in self.config.sources.iter() {
+            if sql_source.contains(&data_source.name) {
+                dependent_sources.push(data_source.clone());
             }
         }
 
         Ok(dependent_sources)
     }
 
-    pub fn list_queries(&self) -> anyhow::Result<Vec<QueryConfig>> {
-        let queries = self
-            .configs
-            .iter()
-            .filter_map(|config| match config {
-                Config::Query(query) => Some(query.to_owned()),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-
-        Ok(queries)
+    pub fn list_queries(&self) -> anyhow::Result<Vec<config::Query>> {
+        Ok(self.config.queries.clone())
     }
 }
 
