@@ -22,7 +22,7 @@ export function Paginator({
   return (
     <div className="flex items-center justify-center space-x-2">
       <button
-        className="size-6 rounded-md hover:bg-gray-200 hover:dark:bg-gray-800"
+        className="size-6 rounded-md enabled:hover:bg-gray-200 disabled:cursor-not-allowed enabled:hover:dark:bg-gray-800"
         onClick={() => {
           onPageChange(prevPage);
         }}
@@ -36,7 +36,7 @@ export function Paginator({
         </span>
       </button>
       <button
-        className="size-6 rounded-md hover:bg-gray-200 disabled:cursor-not-allowed hover:dark:bg-gray-800"
+        className="size-6 rounded-md enabled:hover:bg-gray-200 disabled:cursor-not-allowed enabled:hover:dark:bg-gray-800"
         onClick={() => {
           onPageChange(nextPage);
         }}
