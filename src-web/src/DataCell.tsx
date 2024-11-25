@@ -53,7 +53,7 @@ export function DataCell({ cell }: { cell: Cell<JsonValue[], JsonValue[]> }) {
 
   return (
     <div
-      className={`h-8 px-1 flex items-center border border-transparent hover:border-blue-500`}
+      className={`flex h-8 items-center border border-transparent px-1 hover:border-blue-500`}
       onClick={() => {
         navigator.clipboard.writeText(renderValueToString(cell.getValue()));
         setCopied(true);
@@ -72,11 +72,11 @@ export function DataCell({ cell }: { cell: Cell<JsonValue[], JsonValue[]> }) {
     >
       <div
         className={classNames(
-          "text-nowrap text-ellipsis overflow-hidden",
+          "overflow-hidden text-ellipsis text-nowrap",
           {
             copied,
           },
-          extraClassNames
+          extraClassNames,
         )}
         // style={{
         //   width: `calc(var(--col-${cell.column.id}-size) * 1px)`,
@@ -96,7 +96,7 @@ export function DataCell({ cell }: { cell: Cell<JsonValue[], JsonValue[]> }) {
               e.preventDefault();
               e.stopPropagation();
               navigator.clipboard.writeText(
-                renderValueToString(cell.getValue())
+                renderValueToString(cell.getValue()),
               );
               setCopied(true);
               setTimeout(() => setCopied(false), 1000);

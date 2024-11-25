@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {},
   },
@@ -11,15 +8,15 @@ export default {
   safelist: [
     {
       pattern: /bg-.*/,
-      variants: ['dark'],
+      variants: ["dark"],
     },
     {
       pattern: /text-.*/,
-      variants: ['dark'],
+      variants: ["dark"],
     },
     {
       pattern: /font-.*/,
-      variants: ['dark'],
+      variants: ["dark"],
     },
-  ]
-}
+  ],
+};

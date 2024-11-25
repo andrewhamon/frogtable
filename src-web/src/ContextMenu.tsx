@@ -89,7 +89,7 @@ export function ContextMenu({
 
   return (
     <div
-      className="bg-gray-50/50 dark:bg-gray-950/50 backdrop-blur-md drop-shadow w-64 fixed z-10 border-2 rounded-lg border-gray-500 dark:border-gray-700"
+      className="fixed z-10 w-64 rounded-lg border-2 border-gray-500 bg-gray-50/50 drop-shadow backdrop-blur-md dark:border-gray-700 dark:bg-gray-950/50"
       style={{
         [xDirection]: `${xAmount}px`,
         [yDirection]: `${yAmount}px`,
@@ -110,7 +110,7 @@ export function ContextMenuItem({
 }) {
   return (
     <button
-      className="w-full text-left text-nowrap text-ellipsis overflow-hidden px-2 cursor-default rounded-md hover:bg-blue-500 border-2 border-transparent hover:border-blue-500 hover:text-white"
+      className="w-full cursor-default overflow-hidden text-ellipsis text-nowrap rounded-md border-2 border-transparent px-2 text-left hover:border-blue-500 hover:bg-blue-500 hover:text-white"
       onClick={onClick}
     >
       {children}

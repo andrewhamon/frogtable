@@ -62,7 +62,7 @@ export function DraggableTableHeader({
   return (
     <div className="group relative" ref={setNodeRef} style={style}>
       <div
-        className="py-1 px-1 text-nowrap text-ellipsis overflow-hidden cursor-pointer font-bold group w-full"
+        className="group w-full cursor-pointer overflow-hidden text-ellipsis text-nowrap px-1 py-1 font-bold"
         style={{
           width: `calc(var(--header-${header.id}-size) * 1px)`,
         }}
@@ -71,8 +71,8 @@ export function DraggableTableHeader({
             ? header.column.getNextSortingOrder() === "asc"
               ? `${header.column.columnDef.header}\n\nClick to sort ascending`
               : header.column.getNextSortingOrder() === "desc"
-              ? `${header.column.columnDef.header}\n\nClick to sort descending`
-              : `${header.column.columnDef.header}\n\nClick to clear sort`
+                ? `${header.column.columnDef.header}\n\nClick to sort descending`
+                : `${header.column.columnDef.header}\n\nClick to clear sort`
             : undefined
         }
         {...dragAttrs}
@@ -90,7 +90,7 @@ export function DraggableTableHeader({
         </span>
       </div>
       <div
-        className="absolute top-0 right-0 w-2 h-full cursor-col-resize group-hover:bg-gray-400 group-hover:dark:bg-grey-700"
+        className="group-hover:dark:bg-grey-700 absolute right-0 top-0 h-full w-2 cursor-col-resize group-hover:bg-gray-400"
         onMouseDown={header.getResizeHandler()}
         onTouchStart={header.getResizeHandler()}
       />

@@ -87,7 +87,7 @@ function App() {
 
   return (
     <ContextMenuProvider>
-      <div className="grid grid-cols-12 gap-2 p-2 h-full font-mono bg-gray-50 dark:bg-gray-950 dark:text-white">
+      <div className="grid h-full grid-cols-12 gap-2 bg-gray-50 p-2 font-mono dark:bg-gray-950 dark:text-white">
         <QueryList
           queries={queries}
           selectedQuery={selectedQuery}

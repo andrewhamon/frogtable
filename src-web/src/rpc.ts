@@ -29,7 +29,7 @@ export class RpcError extends Error {
 
 export function rpc<T extends RpcName>(
   rpcType: T,
-  req: RpcRequestVal<T>
+  req: RpcRequestVal<T>,
 ): Promise<RpcResponseVal<T>> {
   const taggedReq = { rpcType: rpcType, ...req };
   const request = new Request(`/rpc?rpcType=${rpcType}`, {
