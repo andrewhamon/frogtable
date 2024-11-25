@@ -1,8 +1,10 @@
 use clap::Parser;
 use duckdb::{params, Config as DuckConfig, Connection};
 use fallible_iterator::FallibleIterator;
+use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use tokio::sync::broadcast;
+use ts_rs::TS;
 
 use crate::cli_config::CliConfig;
 use crate::config;
@@ -92,7 +94,13 @@ impl DB {
         Ok(())
     }
 
-    pub fn exec_query(&self, name: &str) -> anyhow::Result<ExecQueryResult> {
+    pub fn exec_query(
+        &self,
+        name: &str,
+        page: u32,
+        per_page: u32,
+        order_by: &[Ordering],
+    ) -> anyhow::Result<ExecQueryResult> {
         let query = self
             .config
             .queries
@@ -100,13 +108,49 @@ impl DB {
             .find(|config| config.name == name)
             .ok_or(anyhow::anyhow!("Query not found"))?;
 
+        validate_table_name(&query.name)?;
+        let escaped_table_name = escape_table_name(&query.name);
+
         let sql = query.source.sql()?;
+
+        self.conn.lock().unwrap().execute(
+            &format!("CREATE OR REPLACE VIEW {} AS {}", escaped_table_name, sql,),
+            params![],
+        )?;
+
+        let order_clause = if order_by.len() > 0 {
+            let order_by_str = order_by
+                .iter()
+                .map(|ordering| ordering.to_sql())
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("ORDER BY {}", order_by_str)
+        } else {
+            "".to_string()
+        };
+
+        eprint!("order_by: {:?}\n", order_by);
+
+        let wrapped_sql = format!(
+            "SELECT * FROM {} {} LIMIT {} OFFSET {};",
+            escaped_table_name,
+            order_clause,
+            per_page,
+            (page - 1) * per_page
+        );
 
         let conn = self.conn.lock().unwrap();
 
+        let mut count_stmt =
+            conn.prepare(&format!("SELECT COUNT(*) FROM {};", escaped_table_name))?;
+
+        let total_count: u32 = count_stmt.query([])?.next()?.unwrap().get(0)?;
+
+        drop(count_stmt);
+
         // This is kind of a hack, but it is only possible to get a schema after
         // executing a query.
-        let mut stmt: duckdb::Statement<'_> = conn.prepare(&sql)?;
+        let mut stmt: duckdb::Statement<'_> = conn.prepare(&wrapped_sql)?;
         let rows = stmt.query([])?;
         let results = rows
             .map(|r| json::duckdb_row_to_json(r))
@@ -115,6 +159,7 @@ impl DB {
         let schema: std::sync::Arc<duckdb::arrow::datatypes::Schema> = stmt.schema();
 
         let result = ExecQueryResult {
+            total_count: total_count,
             data: results,
             schema: schema.as_ref().clone(),
         };
@@ -149,6 +194,7 @@ impl DB {
 }
 
 pub struct ExecQueryResult {
+    pub total_count: u32,
     pub data: Vec<Vec<serde_json::Value>>,
     pub schema: duckdb::arrow::datatypes::Schema,
 }
@@ -173,4 +219,29 @@ fn validate_table_name(name: &str) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("Invalid table name: {}", name));
     }
     Ok(())
+}
+
+#[derive(TS, Serialize, Deserialize, Debug)]
+pub struct Ordering {
+    column: String,
+    direction: Direction,
+}
+
+impl Ordering {
+    pub fn to_sql(&self) -> String {
+        format!(
+            "\"{}\" {}",
+            self.column,
+            match self.direction {
+                Direction::Asc => "ASC",
+                Direction::Desc => "DESC",
+            }
+        )
+    }
+}
+
+#[derive(TS, Serialize, Deserialize, Debug)]
+pub enum Direction {
+    Asc,
+    Desc,
 }

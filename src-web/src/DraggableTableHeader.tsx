@@ -1,5 +1,9 @@
 import { CSSProperties, useState } from "react";
 import { JsonValue } from "./bindings/serde_json/JsonValue";
+import {
+  TbSortAscendingLetters,
+  TbSortDescendingLetters,
+} from "react-icons/tb";
 
 import { Header, flexRender } from "@tanstack/react-table";
 
@@ -11,8 +15,10 @@ const CLICK_DURATION = 200;
 
 export function DraggableTableHeader({
   header,
+  numSortedColumns,
 }: {
   header: Header<JsonValue[], unknown>;
+  numSortedColumns: number;
 }) {
   const { attributes, isDragging, listeners, setNodeRef, transform } =
     useSortable({
@@ -69,7 +75,7 @@ export function DraggableTableHeader({
         title={
           header.column.getCanSort()
             ? header.column.getNextSortingOrder() === "asc"
-              ? `${header.column.columnDef.header}\n\nClick to sort ascending`
+              ? `${header.column.columnDef.header}\n\nClick to sort ascending.\n\nShift+click to sort multiple columns.`
               : header.column.getNextSortingOrder() === "desc"
                 ? `${header.column.columnDef.header}\n\nClick to sort descending`
                 : `${header.column.columnDef.header}\n\nClick to clear sort`
@@ -81,12 +87,20 @@ export function DraggableTableHeader({
       >
         {header.isPlaceholder
           ? null
-          : flexRender(header.column.columnDef.header, header.getContext())}
-        <span>
+          : flexRender(
+              header.column.columnDef.header,
+              header.getContext(),
+            )}{" "}
+        <span className="">
           {{
-            asc: ArrowLongUp(),
-            desc: ArrowLongDown(),
+            asc: <TbSortAscendingLetters className="inline-block size-5" />,
+            desc: <TbSortDescendingLetters className="inline-block size-5" />,
           }[header.column.getIsSorted() as string] ?? null}
+          <span className="align-super text-xs">
+            {header.column.getIsSorted() && numSortedColumns > 1
+              ? header.column.getSortIndex() + 1
+              : ""}
+          </span>
         </span>
       </div>
       <div
@@ -95,39 +109,5 @@ export function DraggableTableHeader({
         onTouchStart={header.getResizeHandler()}
       />
     </div>
-  );
-}
-
-function ArrowLongDown() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className="inline size-4"
-    >
-      <path
-        fillRule="evenodd"
-        d="M12 2.25a.75.75 0 0 1 .75.75v16.19l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3.75 3.75a.75.75 0 0 1-1.06 0l-3.75-3.75a.75.75 0 1 1 1.06-1.06l2.47 2.47V3a.75.75 0 0 1 .75-.75Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function ArrowLongUp() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className="inline size-4"
-    >
-      <path
-        fillRule="evenodd"
-        d="M11.47 2.47a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1-1.06 1.06l-2.47-2.47V21a.75.75 0 0 1-1.5 0V4.81L8.78 7.28a.75.75 0 0 1-1.06-1.06l3.75-3.75Z"
-        clipRule="evenodd"
-      />
-    </svg>
   );
 }

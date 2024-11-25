@@ -1,6 +1,11 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { JsonValue } from "./bindings/serde_json/JsonValue";
-import { ClockIcon, Bars3BottomLeftIcon } from "@heroicons/react/24/solid";
+import { TbBrandSpeedtest, TbClock } from "react-icons/tb";
+import { HiBars3BottomLeft } from "react-icons/hi2";
+import { Paginator } from "./Paginator";
+import { Ordering } from "./bindings/Ordering";
+import { Direction } from "./bindings/Direction";
+import { TimeDistanceFromNow } from "./TimeDistance";
 
 type JsonObject = {
   [key: string]: JsonValue | undefined;
@@ -14,6 +19,7 @@ import {
   createColumnHelper,
   Table,
   SortingState,
+  type Updater,
 } from "@tanstack/react-table";
 
 // needed for table body level scope DnD setup
@@ -71,11 +77,25 @@ function DataTable({
   schema,
   queryName,
   duration,
+  totalCount,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  onSortChange,
+  dataFetchedAt,
 }: {
   data: JsonValue[][];
   schema: JsonObject[];
   queryName: string;
   duration: number;
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  onSortChange: (ordering: Ordering[]) => void;
+  dataFetchedAt: Date;
 }) {
   const columns = useMemo(() => makeColumns(schema), [schema]);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -104,6 +124,32 @@ function DataTable({
     [schema],
   );
 
+  function handleSortChange(sortingUpdater: Updater<SortingState>): void {
+    setSorting((prevSorting) => {
+      const newSorting =
+        typeof sortingUpdater === "function"
+          ? sortingUpdater(prevSorting)
+          : sortingUpdater;
+
+      const ordering: Ordering[] = newSorting
+        .map((sort) => {
+          const id = parseInt(sort.id);
+          const column = schema[id];
+          const direction: Direction = sort.desc ? "Desc" : "Asc";
+          if (column) {
+            return {
+              column: column.name as string,
+              direction: direction,
+            };
+          }
+        })
+        .filter((value) => value !== undefined);
+
+      onSortChange(ordering);
+      return newSorting;
+    });
+  }
+
   const table = useReactTable({
     data,
     columns,
@@ -120,8 +166,9 @@ function DataTable({
     },
     columnResizeMode: "onChange",
     onColumnOrderChange: setColumnOrder,
-    onSortingChange: setSorting,
+    onSortingChange: handleSortChange,
     onColumnSizingChange: setColumnSizing,
+    manualSorting: true,
     debugTable: true,
     debugHeaders: true,
     debugColumns: true,
@@ -164,6 +211,14 @@ function DataTable({
 
   const contextMenuContext = useContext(ContextMenuContext);
 
+  const scrollDivRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollDivRef.current) {
+      scrollDivRef.current.scrollTop = 0;
+    }
+  }, [page]);
+
   return (
     <div
       className={`col-span-10 flex select-none flex-col overscroll-none rounded-lg border-2 border-gray-500 dark:border-gray-700 ${
@@ -173,6 +228,7 @@ function DataTable({
         ...columnSizeVars,
         scrollbarWidth: "none",
       }}
+      ref={scrollDivRef}
     >
       <div
         className="relative grow cursor-crosshair"
@@ -192,9 +248,12 @@ function DataTable({
                   strategy={horizontalListSortingStrategy}
                 >
                   {headerGroup.headers.map((header) => (
-                    <DraggableTableHeader key={header.id} header={header} />
+                    <DraggableTableHeader
+                      key={header.id}
+                      header={header}
+                      numSortedColumns={sorting.length}
+                    />
                   ))}
-                  {/* <div className="w-32 relative">a</div> */}
                 </SortableContext>
               </div>
             ))}
@@ -207,17 +266,30 @@ function DataTable({
         </DndContext>
       </div>
       <div className="sticky bottom-0 left-0 flex justify-between border-t-2 border-gray-500 bg-gray-50 px-2 py-0.5 dark:border-gray-700 dark:bg-gray-950">
-        <div>
+        <div className="flex w-1/3 items-center">
           {/* Left */}
-          <Bars3BottomLeftIcon className="inline-block size-4" />
+          <HiBars3BottomLeft className="inline-block size-4" />
           <em className="pl-1 pr-2 text-xs">
-            {data.length} row{data.length !== 1 ? "s" : ""}
+            {totalCount} row{totalCount !== 1 ? "s" : ""}
           </em>
-          <ClockIcon className="inline-block size-4" />
+          <TbBrandSpeedtest className="inline-block size-4" />
           <em className="pl-1 pr-2 text-xs">{duration.toFixed(0)}ms</em>
+
+          <TbClock className="inline-block size-4" />
+          <em className="pl-1 pr-2 text-xs">
+            <TimeDistanceFromNow date={dataFetchedAt} />
+          </em>
         </div>
-        <div>{/* Center */}</div>
-        <div>{/* Right */}</div>
+        <div className="flex w-1/3 items-center justify-around">
+          <Paginator
+            page={page}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+          />
+        </div>
+        <div className="flex w-1/3 items-center">{/* Right */}</div>
       </div>
     </div>
   );

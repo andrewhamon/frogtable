@@ -21,7 +21,7 @@ struct Assets;
 
 use crate::{
     config,
-    db::{self, DbBroadcastEvent::Ping},
+    db::{self, DbBroadcastEvent::Ping, Ordering},
 };
 
 pub fn new(db: db::DB) -> Router {
@@ -38,10 +38,19 @@ async fn rpc_handler(
     extract::Json(request): extract::Json<RpcRequest>,
 ) -> ApiResult<RpcResponse> {
     match request {
-        RpcRequest::ExecQuery(ExecQueryRequest { name }) => {
+        RpcRequest::ExecQuery(ExecQueryRequest {
+            name,
+            page,
+            page_size,
+            order_by,
+        }) => {
+            let page = page.unwrap_or(1);
+            let page_size = page_size.unwrap_or(100);
+            let ordering = order_by.unwrap_or_default();
             db.refresh_sources(&name)?;
-            let data = db.exec_query(&name)?;
+            let data = db.exec_query(&name, page, page_size, &ordering)?;
             Ok(Json(RpcResponse::ExecQuery(ExecQueryResponse {
+                total_count: data.total_count,
                 data: data.data,
                 schema: serde_json::to_value(data.schema)?,
             })))
@@ -88,10 +97,14 @@ struct ListQueriesResponse {
 #[derive(TS, Serialize, Deserialize)]
 struct ExecQueryRequest {
     name: String,
+    page: Option<u32>,
+    page_size: Option<u32>,
+    order_by: Option<Vec<Ordering>>,
 }
 
 #[derive(TS, Serialize, Deserialize)]
 struct ExecQueryResponse {
+    total_count: u32,
     data: Vec<Vec<serde_json::Value>>,
     schema: serde_json::Value,
 }
