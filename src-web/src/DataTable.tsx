@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { JsonValue } from "./bindings/serde_json/JsonValue";
+import { ClockIcon, Bars3BottomLeftIcon } from "@heroicons/react/24/solid";
 
 type JsonObject = {
   [key: string]: JsonValue | undefined;
@@ -38,7 +39,7 @@ import { DataCell } from "./DataCell";
 import { ContextMenuContext } from "./ContextMenu";
 
 function makeColumns(
-  schema: JsonObject[]
+  schema: JsonObject[],
 ): ColumnDef<JsonValue[], JsonValue[]>[] {
   const columnHelper = createColumnHelper<JsonValue[]>();
   return schema.map((f, idx) => {
@@ -69,10 +70,12 @@ function DataTable({
   data,
   schema,
   queryName,
+  duration,
 }: {
   data: JsonValue[][];
   schema: JsonObject[];
   queryName: string;
+  duration: number;
 }) {
   const columns = useMemo(() => makeColumns(schema), [schema]);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -80,7 +83,7 @@ function DataTable({
     () => {
       const sizing = loadColumnSizingFromLocalStorage(queryName, columns);
       return sizing;
-    }
+    },
   );
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
@@ -98,7 +101,7 @@ function DataTable({
 
   const columnVisibility = useMemo(
     () => defaultColumnVisibility(schema),
-    [schema]
+    [schema],
   );
 
   const table = useReactTable({
@@ -139,7 +142,7 @@ function DataTable({
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
     useSensor(TouchSensor, {}),
-    useSensor(KeyboardSensor, {})
+    useSensor(KeyboardSensor, {}),
   );
 
   const columnSizeVars = (() => {
@@ -163,7 +166,7 @@ function DataTable({
 
   return (
     <div
-      className={`col-span-10 overscroll-none select-none border-2 rounded-lg border-gray-500 dark:border-gray-700 flex flex-col ${
+      className={`col-span-10 flex select-none flex-col overscroll-none rounded-lg border-2 border-gray-500 dark:border-gray-700 ${
         contextMenuContext.active ? "overflow-hidden" : "overflow-scroll"
       }`}
       style={{
@@ -172,7 +175,7 @@ function DataTable({
       }}
     >
       <div
-        className="grow cursor-crosshair relative"
+        className="relative grow cursor-crosshair"
         style={{ minWidth: `calc(var(--col-total-width) * 1px)` }}
       >
         <DndContext
@@ -181,7 +184,7 @@ function DataTable({
           onDragEnd={handleDragEnd}
           sensors={sensors}
         >
-          <div className="sticky top-0 bg-gray-50 dark:bg-gray-950 border-b-2 border-gray-500 dark:border-gray-700">
+          <div className="sticky top-0 border-b-2 border-gray-500 bg-gray-50 dark:border-gray-700 dark:bg-gray-950">
             {table.getHeaderGroups().map((headerGroup) => (
               <div key={headerGroup.id} className="flex">
                 <SortableContext
@@ -203,10 +206,18 @@ function DataTable({
           )}
         </DndContext>
       </div>
-      <div className="sticky flex justify-end bottom-0 left-0 bg-gray-50 dark:bg-gray-950 border-t-2 border-gray-500 dark:border-gray-700 px-2 py-0.5">
-        <em>
-          {data.length} row{data.length !== 1 ? "s" : ""}
-        </em>
+      <div className="sticky bottom-0 left-0 flex justify-between border-t-2 border-gray-500 bg-gray-50 px-2 py-0.5 dark:border-gray-700 dark:bg-gray-950">
+        <div>
+          {/* Left */}
+          <Bars3BottomLeftIcon className="inline-block size-4" />
+          <em className="pl-1 pr-2 text-xs">
+            {data.length} row{data.length !== 1 ? "s" : ""}
+          </em>
+          <ClockIcon className="inline-block size-4" />
+          <em className="pl-1 pr-2 text-xs">{duration.toFixed(0)}ms</em>
+        </div>
+        <div>{/* Center */}</div>
+        <div>{/* Right */}</div>
       </div>
     </div>
   );
@@ -218,7 +229,7 @@ function TableBody({ table }: { table: Table<JsonValue[]> }) {
       {table.getRowModel().rows.map((row) => (
         <div
           key={row.id}
-          className="odd:bg-gray-200 even:bg-gray-50 dark:odd:bg-gray-800 dark:even:bg-gray-950 flex"
+          className="flex odd:bg-gray-200 even:bg-gray-50 dark:odd:bg-gray-800 dark:even:bg-gray-950"
         >
           {row.getVisibleCells().map((cell) => {
             return <DataCell key={cell.id} cell={cell} />;
@@ -231,21 +242,21 @@ function TableBody({ table }: { table: Table<JsonValue[]> }) {
 
 export const MemoizedTableBody = React.memo(
   TableBody,
-  (prev, next) => prev.table.options.data === next.table.options.data
+  (prev, next) => prev.table.options.data === next.table.options.data,
 ) as typeof TableBody;
 
 export default DataTable;
 
 function loadColumnOrderFromLocalStorage(
   queryName: string,
-  columnDefs: ColumnDef<JsonValue[], JsonValue[]>[]
+  columnDefs: ColumnDef<JsonValue[], JsonValue[]>[],
 ) {
   const validColumnIds = columnDefs.map((c) => c.id);
   const storedColumnIds = getColumnOrderFromLocalStorage(queryName)?.filter(
-    (c) => validColumnIds.includes(c)
+    (c) => validColumnIds.includes(c),
   );
   const missingColumnIds = validColumnIds.filter(
-    (c) => typeof c === "string" && !storedColumnIds.includes(c)
+    (c) => typeof c === "string" && !storedColumnIds.includes(c),
   ) as string[];
 
   return [...missingColumnIds, ...storedColumnIds];
@@ -277,14 +288,14 @@ function getColumnOrderFromLocalStorage(queryName: string) {
 
 function saveColumnOrderToLocalStorage(
   queryName: string,
-  columnOrder: string[]
+  columnOrder: string[],
 ) {
   localStorage.setItem(`columnOrder-${queryName}`, JSON.stringify(columnOrder));
 }
 
 function loadColumnSizingFromLocalStorage(
   queryName: string,
-  columnDefs: ColumnDef<JsonValue[], JsonValue[]>[]
+  columnDefs: ColumnDef<JsonValue[], JsonValue[]>[],
 ) {
   const columnSizes = getColumnSizingFromLocalStorage(queryName);
   const validColumnIds = columnDefs.map((c) => c.id);
@@ -301,7 +312,7 @@ function loadColumnSizingFromLocalStorage(
 function getColumnSizingFromLocalStorage(queryName: string) {
   try {
     const storedColumnSizing = localStorage.getItem(
-      `columnSizing-${queryName}`
+      `columnSizing-${queryName}`,
     );
     if (storedColumnSizing) {
       const columnSizing = JSON.parse(storedColumnSizing);
@@ -326,10 +337,10 @@ function getColumnSizingFromLocalStorage(queryName: string) {
 
 function saveColumnSizingToLocalStorage(
   queryName: string,
-  columnSizing: { [key: string]: number }
+  columnSizing: { [key: string]: number },
 ) {
   localStorage.setItem(
     `columnSizing-${queryName}`,
-    JSON.stringify(columnSizing)
+    JSON.stringify(columnSizing),
   );
 }

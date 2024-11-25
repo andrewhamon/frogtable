@@ -25,6 +25,7 @@ function App() {
   const [queries, setQueries] = useState<string[]>([]);
   const [selectedQuery, setSelectedQuery] = useState<string | null>(null);
   const [data, setData] = useState<JsonValue[][] | null>(null);
+  const [duration, setDuration] = useState<number>(0);
   const [schema, setSchema] = useState<JsonObject[] | null>(null);
   const [forceRefetchData, setForceRefetchData] = useState(0);
   const [error, setError] = useState<Error | null>(null);
@@ -37,8 +38,11 @@ function App() {
     if (!selectedQuery) {
       return;
     }
+    const startTime = performance.now();
     fetchQuery(selectedQuery)
       .then((data) => {
+        const duration = performance.now() - startTime;
+        setDuration(duration);
         setData(data.data);
         setError(null);
         if (typeof data.schema == "object" && !Array.isArray(data.schema)) {
@@ -96,6 +100,7 @@ function App() {
             data={data}
             schema={schema}
             queryName={selectedQuery}
+            duration={duration}
           />
         ) : (
           ""
