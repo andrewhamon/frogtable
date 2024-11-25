@@ -1,8 +1,10 @@
 use clap::Parser;
 use duckdb::{params, Config as DuckConfig, Connection};
 use fallible_iterator::FallibleIterator;
+use notify::{event::ModifyKind, Event, EventKind, RecursiveMode, Result, Watcher};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
+use std::sync::mpsc;
 use tokio::sync::broadcast;
 use ts_rs::TS;
 
@@ -15,7 +17,10 @@ pub struct DB {
     pub conn: std::sync::Arc<std::sync::Mutex<Connection>>,
     pub tx: broadcast::Sender<DbBroadcastEvent>,
     pub config: std::sync::Arc<config::RootConfig>,
+    pub watcher: std::sync::Arc<std::sync::Mutex<notify::RecommendedWatcher>>,
 }
+
+//
 
 impl DB {
     pub async fn new_from_cli_args() -> anyhow::Result<Self> {
@@ -45,10 +50,26 @@ impl DB {
 
         let (tx, _) = broadcast::channel::<DbBroadcastEvent>(16);
 
+        let (file_watch_tx, file_watch_rx) = mpsc::channel::<Result<Event>>();
+
+        let root_config_arc = std::sync::Arc::new(root_config);
+
+        let mut watcher = notify::recommended_watcher(file_watch_tx)?;
+
+        for query in root_config_arc.queries.iter() {
+            if let Some(path) = query.source.path() {
+                watcher.watch(&path, RecursiveMode::NonRecursive)?;
+            }
+        }
+
+        spawn_file_watcher(file_watch_rx, tx.clone(), root_config_arc.clone());
+        spawn_keepalives(tx.clone());
+
         let db = DB {
             conn: std::sync::Arc::new(conn.into()),
-            config: std::sync::Arc::new(root_config),
-            tx,
+            config: root_config_arc,
+            tx: tx,
+            watcher: std::sync::Arc::new(std::sync::Mutex::new(watcher)),
         };
 
         db.init()?;
@@ -199,9 +220,12 @@ pub struct ExecQueryResult {
     pub schema: duckdb::arrow::datatypes::Schema,
 }
 
-#[derive(Debug, Clone)]
+#[derive(TS, Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "eventType")]
+#[ts(export)]
 pub enum DbBroadcastEvent {
     Ping { data: String },
+    QueryUpdated { name: String },
 }
 
 // I tried format_sql_query crate but it does not add quotes if hyphens are
@@ -244,4 +268,81 @@ impl Ordering {
 pub enum Direction {
     Asc,
     Desc,
+}
+
+fn spawn_keepalives(tx: broadcast::Sender<DbBroadcastEvent>) {
+    tokio::spawn(async move {
+        loop {
+            let _ = tx.send(DbBroadcastEvent::Ping {
+                data: "keepalive".to_string(),
+            });
+            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        }
+    });
+}
+
+fn spawn_file_watcher(
+    rx: mpsc::Receiver<Result<Event>>,
+    tx: broadcast::Sender<DbBroadcastEvent>,
+    config: std::sync::Arc<config::RootConfig>,
+) {
+    eprintln!("Spawning file watcher");
+    tokio::task::spawn_blocking(move || {
+        eprintln!("Inside spaw blocking");
+        for res in rx {
+            eprint!("Got file watch event: {:?}\n", res);
+            handle_file_watch_event(res, &config, tx.clone());
+        }
+    });
+}
+
+fn handle_file_watch_event(
+    event: Result<Event>,
+    config: &config::RootConfig,
+    tx: broadcast::Sender<DbBroadcastEvent>,
+) {
+    let queries_to_watch = config
+        .queries
+        .clone()
+        .iter()
+        .filter(|q| q.source.path().is_some())
+        .map(|q| q.clone())
+        .collect::<Vec<_>>();
+
+    tokio::spawn(async move {
+        match event {
+            Ok(Event {
+                kind: EventKind::Modify(ModifyKind::Data(_)),
+                paths,
+                ..
+            }) => {
+                for path in paths {
+                    for query in queries_to_watch.iter() {
+                        eprintln!(
+                            "Checking path: {:?} matches {:?}: {}",
+                            path,
+                            query.source.path().unwrap(),
+                            path == query.source.path().unwrap()
+                        );
+                        if query.source.path().is_some()
+                            && query.source.path().unwrap().canonicalize()?
+                                == path.canonicalize()?
+                        {
+                            let result = tx.send(DbBroadcastEvent::QueryUpdated {
+                                name: query.name.clone(),
+                            });
+
+                            eprintln!("send result: {:?}", result)
+                        }
+                    }
+                }
+            }
+            Ok(_) => {}
+            Err(e) => eprintln!("watch error: {:?}", e),
+        };
+
+        Ok::<(), anyhow::Error>(())
+    });
+
+    ()
 }

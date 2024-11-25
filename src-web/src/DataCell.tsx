@@ -143,7 +143,7 @@ function renderValue(value: JsonValue): ReactNode {
   }
 }
 
-export function renderValueToString(value: JsonValue): string {
+function renderValueToString(value: JsonValue): string {
   if (value === null) {
     return "null";
   }

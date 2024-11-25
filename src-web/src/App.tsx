@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { rpc } from "./rpc";
 import { JsonValue } from "./bindings/serde_json/JsonValue";
+import { DbBroadcastEvent } from "./bindings/DbBroadcastEvent";
 
 import { ContextMenuProvider } from "./ContextMenu";
 
@@ -37,6 +38,7 @@ function App() {
   const [selectedQuery, setSelectedQuery] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
+  const [forceRefresh, setForceRefresh] = useState(false);
   const [sortBy, setSortBy] = useState<Ordering[]>([]);
   const [data, setData] = useState<JsonValue[][] | null>(null);
   const [dataFetchedAt, setDataFetchedAt] = useState<Date>(new Date());
@@ -44,6 +46,8 @@ function App() {
   const [duration, setDuration] = useState<number>(0);
   const [schema, setSchema] = useState<JsonObject[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
+
+  const suppressQueryEvents = useRef(false);
 
   if (!selectedQuery && queries.length > 0) {
     setSelectedQuery(queries[0]);
@@ -53,6 +57,11 @@ function App() {
     if (!selectedQuery) {
       return;
     }
+
+    if (forceRefresh) {
+      // not actually used, but needed to trigger a re-fetch
+    }
+
     setData([]);
     const startTime = performance.now();
     setDataFetchedAt(new Date());
@@ -74,19 +83,31 @@ function App() {
         if (e instanceof Error) {
           setError(e);
         }
+      })
+      .finally(() => {
+        suppressQueryEvents.current = false;
       });
-  }, [selectedQuery, page, pageSize, sortBy]);
+  }, [selectedQuery, page, pageSize, sortBy, forceRefresh]);
 
   useEffect(() => {
     const bc = new BroadcastChannel("sse");
     bc.onmessage = (event) => {
       console.log(event);
+      const data = event.data as DbBroadcastEvent;
+      if (data.eventType == "QueryUpdated") {
+        if (data.name === selectedQuery) {
+          if (!suppressQueryEvents.current) {
+            suppressQueryEvents.current = true;
+            setForceRefresh((current) => !current);
+          }
+        }
+      }
     };
 
     return () => {
       bc.close();
     };
-  }, []);
+  }, [selectedQuery]);
 
   useEffect(() => {
     fetchQueryList().then((data) => {

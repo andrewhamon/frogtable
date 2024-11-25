@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 
 export function TimeDistanceFromNow({ date }: { date: Date }) {
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [_, rerender] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentTime(new Date());
+      rerender((prev) => !prev);
     }, 1000);
 
     return () => {
       clearInterval(interval);
     };
-  }, [date, currentTime]);
+  }, []);
 
-  const diff = currentTime.getTime() - date.getTime();
+  const diff = new Date().getTime() - date.getTime();
   const seconds = diff / 1000;
   const minutes = Math.floor(seconds / 60);
 

@@ -10,7 +10,7 @@ use axum_embed::ServeEmbed;
 use futures::stream::Stream;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
-use std::{convert::Infallible, time::Duration};
+use std::time::Duration;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt as _;
 use ts_rs::TS;
@@ -66,11 +66,11 @@ async fn rpc_handler(
 
 async fn sse_handler(
     State(db): State<db::DB>,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+) -> Sse<impl Stream<Item = Result<Event, anyhow::Error>>> {
     let rx = db.tx.subscribe();
     let stream = BroadcastStream::new(rx).map(|data| {
         let event = match data {
-            Ok(Ping { data }) => Event::default().data(data),
+            Ok(event) => Event::default().data(serde_json::to_string(&event)?),
             Err(e) => Event::default().data(format!("Error: {}", e)),
         };
         Ok(event)
@@ -82,7 +82,7 @@ async fn sse_handler(
 
     Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
-            .interval(Duration::from_secs(1))
+            .interval(Duration::from_secs(30))
             .text("keep-alive-text"),
     )
 }

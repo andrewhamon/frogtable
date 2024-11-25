@@ -105,6 +105,13 @@ pub enum QuerySource {
 }
 
 impl QuerySource {
+    pub fn path(&self) -> Option<PathBuf> {
+        match &self {
+            QuerySource::SqlFile(path) => Some(path.clone()),
+            QuerySource::SqlString(_) => None,
+        }
+    }
+
     pub fn sql(&self) -> io::Result<String> {
         match &self {
             QuerySource::SqlFile(path) => std::fs::read_to_string(path),

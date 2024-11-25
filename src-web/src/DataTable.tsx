@@ -221,7 +221,7 @@ function DataTable({
 
   return (
     <div
-      className={`col-span-10 flex select-none flex-col overscroll-none rounded-lg border-2 border-gray-500 dark:border-gray-700 ${
+      className={`col-span-10 flex flex-col overscroll-none rounded-lg border-2 border-gray-500 dark:border-gray-700 ${
         contextMenuContext.active ? "overflow-hidden" : "overflow-scroll"
       }`}
       style={{

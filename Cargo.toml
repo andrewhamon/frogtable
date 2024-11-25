@@ -23,3 +23,4 @@ rust-embed = { version = "8.5.0", features = ["interpolate-folder-path"] }
 axum-embed = "0.1.0"
 open = "5.3.0"
 chrono = { version = "0.4.38", features = ["serde"] }
+notify = { version = "7.0.0", features = ["macos_kqueue"] }
