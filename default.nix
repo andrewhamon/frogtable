@@ -30,7 +30,7 @@ let
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-OLhUVu9NZcgGgYK6Kh/lrVghzx4BHIpFv8TC2FwaNcQ=";
+    outputHash = "sha256-CX4K1Xi72ZngBTJPJwOM3NCHi9+KTnhm14w1z8V4iIA=";
   };
 in
 pkgs.rustPlatform.buildRustPackage rec {

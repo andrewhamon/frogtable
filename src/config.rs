@@ -1,4 +1,7 @@
-use std::{io, path::PathBuf};
+use std::{
+    io::{self, Write},
+    path::PathBuf,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -74,9 +77,9 @@ impl Data {
                 .arg(cmd.clone())
                 .output()?;
 
+            io::stderr().write_all(&output.stderr)?;
+
             if !output.status.success() {
-                eprintln!("Error refreshing source: {}", self.name);
-                eprintln!("{}", String::from_utf8_lossy(&output.stderr));
                 return Err(anyhow::anyhow!(
                     "Error refreshing source `{}` ({}).\n\n$ {}\n{}",
                     self.name,

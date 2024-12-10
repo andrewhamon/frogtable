@@ -28,7 +28,7 @@ export function DataCell({ cell }: { cell: Cell<JsonValue[], JsonValue[]> }) {
     setContextMenuActive(false);
   }
 
-  if (nextColumnName == "__style__") {
+  if (nextColumnName?.toString().startsWith("__style__")) {
     const nextCell = cell.row.original[nextColumnIndex];
     if (typeof nextCell === "object" && !Array.isArray(nextCell)) {
       if (nextCell.class) {

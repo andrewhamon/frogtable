@@ -150,8 +150,6 @@ impl DB {
             "".to_string()
         };
 
-        eprint!("order_by: {:?}\n", order_by);
-
         let wrapped_sql = format!(
             "SELECT * FROM {} {} LIMIT {} OFFSET {};",
             escaped_table_name,
@@ -286,11 +284,8 @@ fn spawn_file_watcher(
     tx: broadcast::Sender<DbBroadcastEvent>,
     config: std::sync::Arc<config::RootConfig>,
 ) {
-    eprintln!("Spawning file watcher");
     tokio::task::spawn_blocking(move || {
-        eprintln!("Inside spaw blocking");
         for res in rx {
-            eprint!("Got file watch event: {:?}\n", res);
             handle_file_watch_event(res, &config, tx.clone());
         }
     });
@@ -318,21 +313,13 @@ fn handle_file_watch_event(
             }) => {
                 for path in paths {
                     for query in queries_to_watch.iter() {
-                        eprintln!(
-                            "Checking path: {:?} matches {:?}: {}",
-                            path,
-                            query.source.path().unwrap(),
-                            path == query.source.path().unwrap()
-                        );
                         if query.source.path().is_some()
                             && query.source.path().unwrap().canonicalize()?
                                 == path.canonicalize()?
                         {
-                            let result = tx.send(DbBroadcastEvent::QueryUpdated {
+                            let _ = tx.send(DbBroadcastEvent::QueryUpdated {
                                 name: query.name.clone(),
                             });
-
-                            eprintln!("send result: {:?}", result)
                         }
                     }
                 }
