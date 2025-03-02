@@ -1,5 +1,5 @@
 use std::{
-    io::{self, Write},
+    io::{self, BufRead, Write},
     path::PathBuf,
 };
 
@@ -77,7 +77,13 @@ impl Data {
                 .arg(cmd.clone())
                 .output()?;
 
-            io::stderr().write_all(&output.stderr)?;
+            output.stderr.lines().for_each(|line| {
+                eprintln!(
+                    "[Refreshing {}]: {}",
+                    self.name,
+                    line.unwrap_or_else(|_| "".to_string())
+                );
+            });
 
             if !output.status.success() {
                 return Err(anyhow::anyhow!(
@@ -88,7 +94,6 @@ impl Data {
                     String::from_utf8_lossy(&output.stderr)
                 ));
             }
-
             std::fs::write(&out_path, &output.stdout)?;
         }
         Ok(())
