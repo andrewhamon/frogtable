@@ -30,7 +30,7 @@ let
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-CX4K1Xi72ZngBTJPJwOM3NCHi9+KTnhm14w1z8V4iIA=";
+    outputHash = "sha256-xB7IrQ0ITUgWvgLJCGB88MkIhtxZYWyRcJsrF92vszs=";
   };
 in
 pkgs.rustPlatform.buildRustPackage rec {
@@ -44,5 +44,5 @@ pkgs.rustPlatform.buildRustPackage rec {
 
   FROGTABLE_WEB_DIST = "${web}";
 
-  cargoHash = "sha256-Udzo/Uvc7PrSmrWsScOo8LxANpDkix/dR3sgNgsgoGo=";
+  cargoHash = "sha256-4e/jQouJfYd2Bej9RFtQhmkWdUIOKSzmlrH43PIsubM=";
 }

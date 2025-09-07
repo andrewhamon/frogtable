@@ -29,7 +29,7 @@ pub fn new(db: db::DB) -> Router {
     Router::new()
         .route("/rpc", post(rpc_handler))
         .route("/sse", get(sse_handler))
-        .nest_service("/", serve_assets)
+        .fallback_service(serve_assets)
         .with_state(db)
 }
 

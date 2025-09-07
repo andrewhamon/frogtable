@@ -31,10 +31,10 @@ export function DataCell({ cell }: { cell: Cell<JsonValue[], JsonValue[]> }) {
   if (nextColumnName?.toString().startsWith("__style__")) {
     const nextCell = cell.row.original[nextColumnIndex];
     if (typeof nextCell === "object" && !Array.isArray(nextCell)) {
-      if (nextCell.class) {
+      if (nextCell?.class) {
         extraClassNames = nextCell.class as string;
       }
-      if (nextCell.href) {
+      if (nextCell?.href) {
         columnHref = nextCell.href as string;
       }
     }

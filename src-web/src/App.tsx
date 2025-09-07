@@ -73,7 +73,7 @@ function App() {
         setTotalCount(data.total_count);
         setError(null);
         if (typeof data.schema == "object" && !Array.isArray(data.schema)) {
-          if (Array.isArray(data.schema.fields)) {
+          if (Array.isArray(data.schema?.fields)) {
             setSchema(data.schema.fields as JsonObject[]);
           }
         }
