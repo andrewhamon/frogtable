@@ -30,6 +30,7 @@ export class RpcError extends Error {
 export function rpc<T extends RpcName>(
   rpcType: T,
   req: RpcRequestVal<T>,
+  signal?: AbortSignal,
 ): Promise<RpcResponseVal<T>> {
   const taggedReq = { rpcType: rpcType, ...req };
   const request = new Request(`/rpc?rpcType=${rpcType}`, {
@@ -38,6 +39,7 @@ export function rpc<T extends RpcName>(
     headers: {
       "Content-Type": "application/json",
     },
+    signal,
   });
   return fetch(request).then(async (response) => {
     if (!response.ok) {

@@ -16,13 +16,18 @@ function fetchQuery(
   page: number,
   pageSize: number,
   ordering: Ordering[],
+  signal?: AbortSignal,
 ) {
-  return rpc("ExecQuery", {
-    name,
-    page,
-    page_size: pageSize,
-    order_by: ordering,
-  });
+  return rpc(
+    "ExecQuery",
+    {
+      name,
+      page,
+      page_size: pageSize,
+      order_by: ordering,
+    },
+    signal,
+  );
 }
 
 function fetchQueryList() {
@@ -65,7 +70,8 @@ function App() {
     setData([]);
     const startTime = performance.now();
     setDataFetchedAt(new Date());
-    fetchQuery(selectedQuery, page, pageSize, sortBy)
+    const abortController = new AbortController();
+    fetchQuery(selectedQuery, page, pageSize, sortBy, abortController.signal)
       .then((data) => {
         const duration = performance.now() - startTime;
         setDuration(duration);
@@ -74,11 +80,17 @@ function App() {
         setError(null);
         if (typeof data.schema == "object" && !Array.isArray(data.schema)) {
           if (Array.isArray(data.schema?.fields)) {
+            if (abortController.signal.aborted) {
+              return;
+            }
             setSchema(data.schema.fields as JsonObject[]);
           }
         }
       })
       .catch((e) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
         console.error(e);
         if (e instanceof Error) {
           setError(e);
@@ -87,6 +99,10 @@ function App() {
       .finally(() => {
         suppressQueryEvents.current = false;
       });
+
+    return () => {
+      abortController.abort();
+    };
   }, [selectedQuery, page, pageSize, sortBy, forceRefresh]);
 
   useEffect(() => {
