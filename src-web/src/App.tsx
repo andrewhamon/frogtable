@@ -16,6 +16,7 @@ function fetchQuery(
   page: number,
   pageSize: number,
   ordering: Ordering[],
+  filters: string,
   signal?: AbortSignal,
 ) {
   return rpc(
@@ -23,6 +24,7 @@ function fetchQuery(
     {
       name,
       page,
+      filters,
       page_size: pageSize,
       order_by: ordering,
     },
@@ -43,6 +45,7 @@ function App() {
   const [selectedQuery, setSelectedQuery] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
+  const [filterString, setFilterString] = useState<string>("");
   const [forceRefresh, setForceRefresh] = useState(false);
   const [sortBy, setSortBy] = useState<Ordering[]>([]);
   const [data, setData] = useState<JsonValue[][] | null>(null);
@@ -71,7 +74,14 @@ function App() {
     const startTime = performance.now();
     setDataFetchedAt(new Date());
     const abortController = new AbortController();
-    fetchQuery(selectedQuery, page, pageSize, sortBy, abortController.signal)
+    fetchQuery(
+      selectedQuery,
+      page,
+      pageSize,
+      sortBy,
+      filterString,
+      abortController.signal,
+    )
       .then((data) => {
         const duration = performance.now() - startTime;
         setDuration(duration);
@@ -103,7 +113,7 @@ function App() {
     return () => {
       abortController.abort();
     };
-  }, [selectedQuery, page, pageSize, sortBy, forceRefresh]);
+  }, [selectedQuery, page, pageSize, sortBy, forceRefresh, filterString]);
 
   useEffect(() => {
     const bc = new BroadcastChannel("sse");
@@ -137,12 +147,18 @@ function App() {
       setSchema(null);
       setTotalCount(0);
       setPage(1);
+      setFilterString("");
 
       if (sortBy.length > 0) {
         setSortBy([]);
       }
     }
     setSelectedQuery(query);
+  }
+
+  function handleFilterChange(filter: string) {
+    setFilterString(filter);
+    setForceRefresh(!forceRefresh);
   }
 
   function handleSortChange(sort: Ordering[]) {
@@ -171,6 +187,7 @@ function App() {
             pageSize={pageSize}
             onPageChange={(page) => setPage(page)}
             onPageSizeChange={(pageSize) => setPageSize(pageSize)}
+            onFiltersChange={(filter) => handleFilterChange(filter)}
             onSortChange={handleSortChange}
             dataFetchedAt={dataFetchedAt}
           />

@@ -43,12 +43,13 @@ async fn rpc_handler(
             page,
             page_size,
             order_by,
+            filters,
         }) => {
             let page = page.unwrap_or(1);
             let page_size = page_size.unwrap_or(100);
             let ordering = order_by.unwrap_or_default();
             db.refresh_sources(&name)?;
-            let data = db.exec_query(&name, page, page_size, &ordering)?;
+            let data = db.exec_query(&name, page, page_size, &ordering, &filters)?;
             Ok(Json(RpcResponse::ExecQuery(ExecQueryResponse {
                 total_count: data.total_count,
                 data: data.data,
@@ -100,6 +101,7 @@ struct ExecQueryRequest {
     page: Option<u32>,
     page_size: Option<u32>,
     order_by: Option<Vec<Ordering>>,
+    filters: String,
 }
 
 #[derive(TS, Serialize, Deserialize)]

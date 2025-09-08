@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { JsonValue } from "./bindings/serde_json/JsonValue";
-import { TbBrandSpeedtest, TbClock } from "react-icons/tb";
+import { TbBrandSpeedtest, TbClock, TbFilter } from "react-icons/tb";
 import { HiBars3BottomLeft } from "react-icons/hi2";
 import { Paginator } from "./Paginator";
 import { Ordering } from "./bindings/Ordering";
@@ -83,6 +83,7 @@ function DataTable({
   onPageChange,
   onPageSizeChange,
   onSortChange,
+  onFiltersChange,
   dataFetchedAt,
 }: {
   data: JsonValue[][];
@@ -95,6 +96,7 @@ function DataTable({
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onSortChange: (ordering: Ordering[]) => void;
+  onFiltersChange: (filters: string) => void;
   dataFetchedAt: Date;
 }) {
   const columns = useMemo(() => makeColumns(schema), [schema]);
@@ -221,7 +223,7 @@ function DataTable({
 
   return (
     <div
-      className={`col-span-10 flex flex-col overscroll-none rounded-lg border-2 border-gray-500 dark:border-gray-700 ${
+      className={`relative col-span-10 flex flex-col overscroll-none rounded-lg border-2 border-gray-500 dark:border-gray-700 ${
         contextMenuContext.active ? "overflow-hidden" : "overflow-scroll"
       }`}
       style={{
@@ -230,6 +232,21 @@ function DataTable({
       }}
       ref={scrollDivRef}
     >
+      <div className="sticky left-0 top-0 z-10 flex w-full items-center border-b-2 border-gray-500 bg-gray-50 py-1">
+        <div className="relative flex w-full items-center">
+          <TbFilter className="absolute inline-block size-4" />
+          <input
+            type="text"
+            placeholder="Type a WHERE clause here. CMD+Enter to re-run query."
+            className="w-full rounded-md bg-gray-50 pl-5"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && e.metaKey) {
+                onFiltersChange(e.currentTarget.value);
+              }
+            }}
+          />
+        </div>{" "}
+      </div>
       <div
         className="relative grow cursor-crosshair"
         style={{ minWidth: `calc(var(--col-total-width) * 1px)` }}
@@ -240,7 +257,10 @@ function DataTable({
           onDragEnd={handleDragEnd}
           sensors={sensors}
         >
-          <div className="sticky top-0 border-b-2 border-gray-500 bg-gray-50 dark:border-gray-700 dark:bg-gray-950">
+          {/* I have now idea where 34.183px comes from, but this is the measurement in browser.
+           This value results in pixel-perfect sticky positioning for the header row underneath
+           filter input */}
+          <div className="sticky top-[34.183px] border-b-2 border-gray-500 bg-gray-50 dark:border-gray-700 dark:bg-gray-950">
             {table.getHeaderGroups().map((headerGroup) => (
               <div key={headerGroup.id} className="flex">
                 <SortableContext

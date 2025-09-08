@@ -35,6 +35,12 @@ export function DraggableTableHeader({
   const [mouseDownAt, setMouseDownAt] = useState<number | null>(null);
 
   function onMouseDownHandler(event: unknown) {
+    if (event && typeof event === "object" && "button" in event) {
+      const mouseEvent = event as MouseEvent;
+      if (mouseEvent.button === 1 || mouseEvent.button === 2) {
+        return;
+      }
+    }
     setMouseDownAt(Date.now());
     const dndMouseDown = listeners && listeners["onMouseDown"];
     if (dndMouseDown) {

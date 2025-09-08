@@ -121,6 +121,7 @@ impl DB {
         page: u32,
         per_page: u32,
         order_by: &[Ordering],
+        filters: &str,
     ) -> anyhow::Result<ExecQueryResult> {
         let query = self
             .config
@@ -150,9 +151,16 @@ impl DB {
             "".to_string()
         };
 
+        let where_clause = if filters.is_empty() {
+            "".to_string()
+        } else {
+            format!("WHERE {}", filters)
+        };
+
         let wrapped_sql = format!(
-            "SELECT * FROM {} {} LIMIT {} OFFSET {};",
+            "SELECT * FROM {} {} {} LIMIT {} OFFSET {};",
             escaped_table_name,
+            where_clause,
             order_clause,
             per_page,
             (page - 1) * per_page
@@ -160,8 +168,10 @@ impl DB {
 
         let conn = self.conn.lock().unwrap();
 
-        let mut count_stmt =
-            conn.prepare(&format!("SELECT COUNT(*) FROM {};", escaped_table_name))?;
+        let mut count_stmt = conn.prepare(&format!(
+            "SELECT COUNT(*) FROM {} {};",
+            escaped_table_name, where_clause
+        ))?;
 
         let total_count: u32 = count_stmt.query([])?.next()?.unwrap().get(0)?;
 
